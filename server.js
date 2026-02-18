@@ -33,6 +33,10 @@ app.post('/webhook', validateSignature, (req, res) => {
 // Forwarded webhook from n8n (no Meta signature - n8n already validated)
 app.post('/webhook/forward', (req, res) => {
   console.log('[Webhook] Received forwarded event from n8n');
+  console.log('[Webhook] Body keys:', Object.keys(req.body || {}));
+  console.log('[Webhook] Field:', req.body?.entry?.[0]?.changes?.[0]?.field);
+  console.log('[Webhook] Has calls:', !!req.body?.entry?.[0]?.changes?.[0]?.value?.calls);
+  console.log('[Webhook] Has statuses:', !!req.body?.entry?.[0]?.changes?.[0]?.value?.statuses);
   handleWebhookEvent(req, res, callManager, io);
 });
 
