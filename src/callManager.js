@@ -130,6 +130,12 @@ async function handleBrowserSdpOffer(callId, sdpOffer, io) {
     return;
   }
 
+  // Prevent double call initiation
+  if (state.status === 'ringing' || state.status === 'connected') {
+    console.warn(`[CallManager] Call ${callId} already in progress (${state.status}), ignoring duplicate SDP offer`);
+    return;
+  }
+
   // Browser provided SDP offer - forward to WhatsApp
   const result = await whatsappApi.initiateOutboundCall(state.recipientPhone, sdpOffer);
   // API returns { calls: [{ id: "wacid..." }], success: true }
