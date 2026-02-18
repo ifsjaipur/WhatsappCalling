@@ -149,7 +149,24 @@ async function handleBrowserSdpOffer(callId, sdpOffer, io) {
 }
 
 async function handleOutboundSdpAnswer(callId, sdpAnswer, io) {
-  const state = calls.get(callId);
+  let state = calls.get(callId);
+
+  // Fallback: if callId not found, search by active outbound call
+  if (!state) {
+    console.log(`[CallManager] Exact callId not found, searching active outbound calls...`);
+    for (const [id, s] of calls) {
+      if (s.direction === 'outbound' && (s.status === 'ringing' || s.status === 'accepted')) {
+        console.log(`[CallManager] Found matching outbound call: ${id}`);
+        state = s;
+        // Update the map with the correct callId
+        calls.delete(id);
+        state.callId = callId;
+        calls.set(callId, state);
+        break;
+      }
+    }
+  }
+
   if (!state) {
     console.warn(`[CallManager] No call state for outbound SDP answer: ${callId}`);
     return;
@@ -174,7 +191,18 @@ async function handleOutboundSdpAnswer(callId, sdpAnswer, io) {
 }
 
 function handleOutboundStatus(callId, statusValue, io) {
-  const state = calls.get(callId);
+  let state = calls.get(callId);
+
+  // Fallback: search by active outbound call
+  if (!state) {
+    for (const [id, s] of calls) {
+      if (s.direction === 'outbound' && ['ringing', 'accepted', 'awaiting_browser_sdp'].includes(s.status)) {
+        state = s;
+        break;
+      }
+    }
+  }
+
   if (!state) {
     console.warn(`[CallManager] No call state for status: ${callId}`);
     return;
