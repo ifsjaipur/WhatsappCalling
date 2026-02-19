@@ -136,6 +136,11 @@ app.get('/api/calls', (req, res) => {
   res.json(callManager.getAllCalls());
 });
 
+app.post('/api/reset-calls', (req, res) => {
+  const count = callManager.resetCalls(io);
+  res.json({ success: true, reset: count });
+});
+
 app.post('/api/send-message', async (req, res) => {
   try {
     const { phone, message } = req.body;

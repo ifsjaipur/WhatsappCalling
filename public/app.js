@@ -182,6 +182,12 @@ socket.on('webhook-event', (data) => {
   log(`Webhook: ${data.type} - ${JSON.stringify(data.data).substring(0, 100)}`, 'info');
 });
 
+socket.on('calls-reset', (data) => {
+  log(`${data.count} stuck call(s) reset`, 'event');
+  showStatus('callStatus', 'Calls reset. You can make a new call.', 'success');
+  document.getElementById('btnCall').disabled = false;
+});
+
 socket.on('error', (data) => {
   log(`Server error: ${data.message}`, 'error');
 });
@@ -368,8 +374,14 @@ async function initiateCall() {
         showStatus('callStatus', 'Browser-only mode: generating SDP...', 'info');
       }
     } else {
-      showStatus('callStatus', `Error: ${JSON.stringify(data.error)}`, 'error');
-      log(`Call error: ${JSON.stringify(data.error)}`, 'error');
+      const errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      // If stuck call, show reset option
+      if (errMsg.includes('already in progress')) {
+        showStatus('callStatus', `${errMsg} <button onclick="resetCalls()" style="margin-left:8px;padding:2px 10px;cursor:pointer;">Reset &amp; Retry</button>`, 'error');
+      } else {
+        showStatus('callStatus', `Error: ${errMsg}`, 'error');
+      }
+      log(`Call error: ${errMsg}`, 'error');
       document.getElementById('btnCall').disabled = false;
     }
   } catch (err) {
@@ -409,6 +421,20 @@ function rejectInboundCall() {
   socket.emit('reject-call', { callId: currentCallId });
   document.getElementById('inboundCard').style.display = 'none';
   cleanupCall();
+}
+
+async function resetCalls() {
+  log('Resetting stuck calls...', 'api');
+  try {
+    const res = await fetch('/api/reset-calls', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      log(`Reset ${data.reset} call(s)`, 'event');
+      cleanupCall();
+    }
+  } catch (err) {
+    log(`Reset error: ${err.message}`, 'error');
+  }
 }
 
 async function sendMessage() {
