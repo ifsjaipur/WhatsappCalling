@@ -5,6 +5,7 @@ let localStream = null;
 let peerConnection = null;
 let callTimer = null;
 let callStartTime = null;
+let callStuckTimeout = null;
 
 // ── Socket.IO Connection Status ──
 
@@ -30,6 +31,7 @@ socket.on('permission-granted', (data) => {
 });
 
 socket.on('call-ringing', (data) => {
+  clearTimeout(callStuckTimeout);
   log(`Call ${data.callId} ringing at ${data.phone}`, 'event');
   showStatus('callStatus', 'Ringing...', 'warning');
   currentCallId = data.callId;
@@ -41,6 +43,7 @@ socket.on('call-accepted', (data) => {
 });
 
 socket.on('call-connected', (data) => {
+  clearTimeout(callStuckTimeout);
   log(`Call ${data.callId} connected!`, 'event');
   showStatus('callStatus', 'Call connected - audio active', 'active');
   document.getElementById('callControls').style.display = 'flex';
@@ -373,6 +376,14 @@ async function initiateCall() {
       if (data.data.mode === 'browser-only') {
         showStatus('callStatus', 'Browser-only mode: generating SDP...', 'info');
       }
+      // Start a stuck-call timeout — if no progress in 15s, show reset
+      clearTimeout(callStuckTimeout);
+      callStuckTimeout = setTimeout(() => {
+        if (currentCallId && document.getElementById('btnCall').disabled) {
+          showStatus('callStatus', 'Call appears stuck. <button onclick="resetCalls()" style="margin-left:8px;padding:4px 12px;cursor:pointer;border-radius:4px;border:1px solid #c00;background:#fff0f0;color:#c00;">Reset &amp; Retry</button>', 'error');
+          log('Call stuck — no response from WhatsApp after 15s', 'error');
+        }
+      }, 15000);
     } else {
       const errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
       // If stuck call, show reset option
@@ -467,6 +478,7 @@ async function sendMessage() {
 // ── Helpers ──
 
 function cleanupCall() {
+  clearTimeout(callStuckTimeout);
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
