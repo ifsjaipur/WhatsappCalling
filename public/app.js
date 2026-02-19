@@ -185,6 +185,13 @@ socket.on('webhook-event', (data) => {
   log(`Webhook: ${data.type} - ${JSON.stringify(data.data).substring(0, 100)}`, 'info');
 });
 
+socket.on('call-error', (data) => {
+  clearTimeout(callStuckTimeout);
+  log(`Call ${data.callId} failed: ${data.error}`, 'error');
+  showStatus('callStatus', `Call failed: ${data.error} <button onclick="resetCalls()" style="margin-left:8px;padding:4px 12px;cursor:pointer;border-radius:4px;border:1px solid #c00;background:#fff0f0;color:#c00;">Reset</button>`, 'error');
+  document.getElementById('btnCall').disabled = false;
+});
+
 socket.on('calls-reset', (data) => {
   log(`${data.count} stuck call(s) reset`, 'event');
   showStatus('callStatus', 'Calls reset. You can make a new call.', 'success');

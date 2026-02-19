@@ -155,22 +155,31 @@ async function handleBrowserSdpOffer(callId, sdpOffer, io) {
     return;
   }
 
-  // Browser provided SDP offer - forward to WhatsApp
-  const result = await whatsappApi.initiateOutboundCall(state.recipientPhone, sdpOffer);
-  // API returns { calls: [{ id: "wacid..." }], success: true }
-  const waCallId = result.calls?.[0]?.id || result.call_id || result.id || callId;
-  state.callId = waCallId;
-  state.status = 'ringing';
-  console.log(`[CallManager] WhatsApp call ID mapped: ${callId} -> ${waCallId}`);
+  try {
+    // Browser provided SDP offer - forward to WhatsApp
+    console.log(`[CallManager] Sending SDP offer to WhatsApp API for ${state.recipientPhone}...`);
+    const result = await whatsappApi.initiateOutboundCall(state.recipientPhone, sdpOffer);
+    // API returns { calls: [{ id: "wacid..." }], success: true }
+    const waCallId = result.calls?.[0]?.id || result.call_id || result.id || callId;
+    state.callId = waCallId;
+    state.status = 'ringing';
+    console.log(`[CallManager] WhatsApp call ID mapped: ${callId} -> ${waCallId}`);
 
-  // Update map with new callId if different
-  if (state.callId !== callId) {
-    calls.delete(callId);
-    calls.set(state.callId, state);
+    // Update map with new callId if different
+    if (state.callId !== callId) {
+      calls.delete(callId);
+      calls.set(state.callId, state);
+    }
+
+    io.emit('call-ringing', { callId: state.callId, phone: state.recipientPhone });
+    console.log(`[CallManager] Browser SDP forwarded, call ${state.callId} ringing`);
+  } catch (err) {
+    const errMsg = err.response?.data?.error?.message || err.message;
+    console.error(`[CallManager] WhatsApp API error for call ${callId}: ${errMsg}`, err.response?.data || '');
+    state.status = 'failed';
+    cleanup(callId);
+    io.emit('call-error', { callId, error: errMsg });
   }
-
-  io.emit('call-ringing', { callId: state.callId, phone: state.recipientPhone });
-  console.log(`[CallManager] Browser SDP forwarded, call ${state.callId} ringing`);
 }
 
 async function handleOutboundSdpAnswer(callId, sdpAnswer, io) {
